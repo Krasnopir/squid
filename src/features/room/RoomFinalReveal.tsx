@@ -59,7 +59,7 @@ export function RoomFinalReveal({ room }: { room: Room }) {
         {result?.draw ? 'Ничья. Еще один заход.' : won ? 'Вы забрали финал' : 'Финал забрал соперник'}
       </h1>
       <button type="button" className="btn-primary w-full max-w-sm py-4" onClick={advance} disabled={busy}>
-        {busy ? 'Продвигаем…' : 'Продолжить'}
+        {busy ? 'Открываем результаты…' : result?.draw ? 'Еще раунд' : 'К результатам'}
       </button>
     </div>
   );
