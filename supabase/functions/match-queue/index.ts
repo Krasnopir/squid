@@ -5,6 +5,9 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
 const BOT_NAMES = ['Bot 1', 'Bot 2', 'Bot 3', 'Bot 4', 'Bot 5'];
+const IMMEDIATE_HUMANS = 3;
+const BOT_FILL_AFTER_MS = 20000;
+const MIN_ROOM_PLAYERS = 3;
 const cors = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -42,18 +45,27 @@ serve(async req => {
     return json(state);
   }
 
-  const { error: enqueueError } = await supabase.rpc('enqueue_matchmaking', {
-    p_user_id: user_id,
-    p_desired: desired,
-  });
-  if (enqueueError) return json({ error: enqueueError.message }, 500);
+  const { data: queuedUser, error: queuedUserError } = await supabase
+    .from('match_queue')
+    .select('user_id')
+    .eq('user_id', user_id)
+    .maybeSingle();
+  if (queuedUserError) return json({ error: queuedUserError.message }, 500);
+
+  if (!queuedUser) {
+    const { error: enqueueError } = await supabase.rpc('enqueue_matchmaking', {
+      p_user_id: user_id,
+      p_desired: desired,
+    });
+    if (enqueueError) return json({ error: enqueueError.message }, 500);
+  }
 
   const { data: queue, error: queueError } = await supabase.from('match_queue').select('*').order('enqueued_at');
   if (queueError) return json({ error: queueError.message }, 500);
   const waitMs = Date.now() - new Date(queue?.[0]?.enqueued_at ?? Date.now()).getTime();
-  const minPlayers = waitMs > 20000 ? 2 : 3;
+  const shouldStart = (queue?.length ?? 0) >= IMMEDIATE_HUMANS || ((queue?.length ?? 0) > 0 && waitMs > BOT_FILL_AFTER_MS);
 
-  if ((queue?.length ?? 0) >= minPlayers) {
+  if (shouldStart) {
     const players = queue!.slice(0, Math.min(desired, queue!.length));
     const hostId = players[0]!.user_id;
     const { data: roomRaw } = await supabase.rpc('create_room', {
@@ -67,7 +79,7 @@ serve(async req => {
       const { error } = await supabase.rpc('join_room', { p_user_id: players[i]!.user_id, p_room_id: room.id });
       if (error) return json({ error: error.message }, 500);
     }
-    const botsNeeded = Math.max(0, minPlayers - players.length);
+    const botsNeeded = Math.max(0, Math.min(desired, MIN_ROOM_PLAYERS) - players.length);
     for (let b = 0; b < botsNeeded; b++) {
       const botId = -(b + 1);
       await supabase.from('room_players').insert({
