@@ -36,6 +36,21 @@ export function useRoomSync(roomId: string | undefined) {
   }, [roomId, queryClient, setRoom]);
 
   useEffect(() => {
+    if (!roomId || useMock || !query.data?.phaseEndsAt) return;
+    const delay = new Date(query.data.phaseEndsAt).getTime() - Date.now() + 250;
+    const id = setTimeout(async () => {
+      try {
+        const r = await tickRoomState(roomId);
+        queryClient.setQueryData(queryKeys.room(roomId), r);
+        setRoom(r);
+      } catch {
+        await queryClient.invalidateQueries({ queryKey: queryKeys.room(roomId) });
+      }
+    }, Math.max(250, delay));
+    return () => clearTimeout(id);
+  }, [query.data?.phase, query.data?.phaseEndsAt, queryClient, roomId, setRoom]);
+
+  useEffect(() => {
     if (!roomId || useMock) return;
     const beat = () => {
       void heartbeatRoom(roomId)

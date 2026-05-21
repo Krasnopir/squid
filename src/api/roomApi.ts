@@ -214,7 +214,10 @@ export async function tickRoomState(roomId: string): Promise<Room> {
   if (useMock) {
     return cacheRoom(tickRoom(getCached(roomId)!));
   }
-  return (await fetchRoom(roomId))!;
+  const sb = requireSupabase();
+  const { data, error } = await sb.rpc('advance_room_phase', { p_room_id: roomId });
+  if (error) throw roomError(error);
+  return mapRoom(data as Record<string, unknown>)!;
 }
 
 export async function enqueueQuickGame(desired = 6, entryFee = 10): Promise<Room | null> {

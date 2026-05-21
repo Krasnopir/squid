@@ -1,11 +1,16 @@
 import { AnimatePresence, motion } from 'framer-motion';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 import { PlayerGrid } from '@/components/ui/PlayerGrid';
+import { Timer } from '@/components/ui/Timer';
+import { tickRoomState } from '@/api/roomApi';
 import { hapticNotification } from '@/lib/telegram';
 import type { Room } from '@/types';
+import { useRoomStore } from '@/store/roomStore';
 
 export function RoomElimination({ room }: { room: Room }) {
+  const setRoom = useRoomStore(s => s.setRoom);
+  const [busy, setBusy] = useState(false);
   const eliminatedIds = new Set(room.lastEliminatedIds ?? (room.lastEliminated ? [room.lastEliminated.userId] : []));
   const eliminated = room.players.filter(p => eliminatedIds.has(p.userId));
   const remaining = room.players.filter(p => p.isAlive);
@@ -20,6 +25,16 @@ export function RoomElimination({ room }: { room: Room }) {
   useEffect(() => {
     hapticNotification('warning');
   }, []);
+
+  const advance = async () => {
+    setBusy(true);
+    try {
+      const next = await tickRoomState(room.id);
+      setRoom(next);
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
     <div className="elimination-bg page-scroll page-pad flex flex-col items-center justify-center gap-6 min-h-full">
@@ -42,6 +57,9 @@ export function RoomElimination({ room }: { room: Room }) {
               : `${eliminated[0]?.displayName ?? 'Игрок'} выбыл`}
           </h1>
           <p className="text-sm text-[var(--app-hint)] mt-2">{reasonText}</p>
+          <div className="mt-4 flex justify-center">
+            <Timer endsAt={room.phaseEndsAt} label="Следующий шаг" />
+          </div>
         </motion.div>
       </AnimatePresence>
       {!!room.lastVoteResult?.tally.length && (
@@ -63,6 +81,9 @@ export function RoomElimination({ room }: { room: Room }) {
         </div>
       )}
       <PlayerGrid players={remaining} />
+      <button type="button" className="btn-primary w-full max-w-sm py-4" onClick={advance} disabled={busy}>
+        {busy ? 'Продвигаем…' : 'Продолжить'}
+      </button>
     </div>
   );
 }
