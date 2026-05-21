@@ -1,34 +1,41 @@
 import type { Room } from '@/types';
 
+function numberOr(value: unknown, fallback: number): number {
+  const n = Number(value ?? fallback);
+  return Number.isFinite(n) ? n : fallback;
+}
+
 export function mapRoom(raw: Record<string, unknown> | null): Room | null {
   if (!raw) return null;
+  if (!raw.id || !raw.code || !raw.status || !Array.isArray(raw.players)) return null;
+
+  const maxPlayers = numberOr(raw.maxPlayers, 2);
+
   return {
     id: String(raw.id),
     code: String(raw.code),
-    hostId: Number(raw.hostId),
+    hostId: numberOr(raw.hostId, 0),
     status: raw.status as Room['status'],
-    maxPlayers: Number(raw.maxPlayers),
-    mode: raw.mode as Room['mode'],
-    pot: Number(raw.pot),
-    phase: raw.phase as Room['phase'],
-    roundIndex: Number(raw.roundIndex),
+    maxPlayers,
+    mode: (raw.mode as Room['mode']) ?? (maxPlayers <= 2 ? 'duel' : 'classic'),
+    pot: numberOr(raw.pot, 0),
+    phase: (raw.phase as Room['phase']) ?? 'lobby',
+    roundIndex: numberOr(raw.roundIndex, 0),
     phaseEndsAt: raw.phaseEndsAt ? String(raw.phaseEndsAt) : null,
-    entryFee: Number(raw.entryFee ?? 10),
-    winnerId: raw.winnerId != null ? Number(raw.winnerId) : undefined,
-    players: Array.isArray(raw.players)
-      ? (raw.players as Record<string, unknown>[]).map(p => ({
-          userId: Number(p.userId),
-          displayName: String(p.displayName),
-          username: p.username ? String(p.username) : undefined,
-          seat: Number(p.seat),
-          isReady: Boolean(p.isReady),
-          isAlive: Boolean(p.isAlive),
-          isBot: Boolean(p.isBot),
-          voteTarget: p.voteTarget != null ? Number(p.voteTarget) : undefined,
-          dilemmaChoice: p.dilemmaChoice as Room['players'][0]['dilemmaChoice'],
-          rpsChoice: p.rpsChoice as Room['players'][0]['rpsChoice'],
-        }))
-      : [],
+    entryFee: numberOr(raw.entryFee, 10),
+    winnerId: raw.winnerId != null ? numberOr(raw.winnerId, 0) : undefined,
+    players: (raw.players as Record<string, unknown>[]).map((p, index) => ({
+      userId: numberOr(p.userId, 0),
+      displayName: String(p.displayName),
+      username: p.username ? String(p.username) : undefined,
+      seat: numberOr(p.seat, index),
+      isReady: Boolean(p.isReady),
+      isAlive: Boolean(p.isAlive),
+      isBot: Boolean(p.isBot),
+      voteTarget: p.voteTarget != null ? numberOr(p.voteTarget, 0) : undefined,
+      dilemmaChoice: p.dilemmaChoice as Room['players'][0]['dilemmaChoice'],
+      rpsChoice: p.rpsChoice as Room['players'][0]['rpsChoice'],
+    })),
     lastEliminatedIds: Array.isArray(raw.lastEliminatedIds)
       ? raw.lastEliminatedIds.map(id => Number(id))
       : undefined,

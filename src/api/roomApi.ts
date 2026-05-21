@@ -207,7 +207,9 @@ export async function enqueueQuickGame(desired = 6): Promise<Room | null> {
     body: { user_id: u.id, desired },
   });
   if (error) throw roomError(error);
-  const room = mapRoom(data as Record<string, unknown>);
+  const raw = data as Record<string, unknown>;
+  if (raw?.queued) return null;
+  const room = mapRoom(raw);
   if (room?.id) return room;
   return null;
 }
