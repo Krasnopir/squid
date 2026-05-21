@@ -1,52 +1,46 @@
-# Что уже сделано / что нужно с тебя
+# Статус деплоя
 
-## Уже настроено локально
+## Готово
 
-- `.env.local` — Supabase URL + publishable key, бот `@bro_squid_bot`
-- SSH: `github-squid` → `~/.ssh/id_ed25519_github_squid` (новый ключ, старые не трогали)
-- Код: `BOT_USERNAME=bro_squid_bot`, `MINI_APP_NAME=app` (см. ниже)
+| Шаг | Статус |
+|-----|--------|
+| Git push `main` → github.com/Krasnopir/squid | ✅ |
+| Supabase миграции 001–002 | ✅ (ты прогнал) |
+| Edge functions + webhook `@bro_squid_bot` | ✅ `./deploy.sh` |
+| `.env.local` + service_role | ✅ |
+| GitHub Actions → Pages workflow | ✅ (после push задеплоит) |
 
-## С тебя — обязательно
+**Live URLs:**
+- Frontend (после Pages): https://krasnopir.github.io/squid/
+- Supabase: https://bfenwwuspuqmktvfjtxb.supabase.co
+- Bot: https://t.me/bro_squid_bot
 
-### 1. GitHub Deploy key
+## С тебя — осталось 3 шага
 
-См. [GITHUB_DEPLOY_KEY.md](./GITHUB_DEPLOY_KEY.md) — вставь публичный ключ в репо.
+### 1. GitHub Pages (один раз в репо)
 
-### 2. Supabase Dashboard
+Settings → Pages → Source: **GitHub Actions** (не branch deploy).
 
-Проект: `bfenwwuspuqmktvfjtxb`
+После следующего push workflow сам соберёт и выложит.
 
-1. **SQL Editor** — выполни по порядку:
-   - `supabase/migrations/001_squid_core.sql`
-   - `supabase/migrations/002_advance_phase.sql`
-2. **Settings → API** — скопируй **`service_role`** (secret) в `.env.local` → `SUPABASE_SERVICE_ROLE_KEY=`
-3. **Database → Replication** — убедись, что Realtime включён для `rooms`, `room_players` (в 001 уже `alter publication`)
+### 2. BotFather — Mini App
 
-### 3. Telegram BotFather
+У `@bro_squid_bot`:
 
-1. `/newapp` у `@bro_squid_bot` — создай Mini App, short name (например `app` или `trust`)
-2. URL Web App — пока Vercel/хостинг или `https://localhost` для теста
-3. Если short name **не** `app` — поправь в `.env.local`:
-   - `APP_URL=https://t.me/bro_squid_bot/ТВОЙ_SHORT_NAME`
-   - `src/lib/telegram.ts` → `MINI_APP_NAME`
+1. `/newapp` (если ещё нет) → short name: **`app`**
+2. **Web App URL:** `https://krasnopir.github.io/squid/`
+3. Сохрани
 
-### 4. Деплой edge functions (после service_role)
+Кнопка меню бота уже настроена на этот URL через `deploy.sh`.
 
-```bash
-cd squid
-# заполни SUPABASE_SERVICE_ROLE_KEY в .env.local
-./deploy.sh
-```
+### 3. Cron `room-tick`
 
-### 5. Cron для таймеров комнат
+Supabase Dashboard → Edge Functions → **room-tick** → **Schedules** → Create:
 
-Supabase Dashboard → Edge Functions → `room-tick` → Schedule: `*/1 * * * *` (каждую минуту)  
-или pg_cron, если включишь.
+- Cron: `* * * * *` (каждую минуту)
+- Или в SQL: см. Dashboard docs
 
-### 6. Хостинг фронта
-
-Собери `npm run build`, залей `dist/` на Vercel/Cloudflare/nginx.  
-Обнови URL Mini App в BotFather на прод-URL.
+Без этого таймеры фаз в live-матчах не тикают сами.
 
 ## Опционально позже
 
