@@ -4,7 +4,9 @@ import { useSessionStore } from '@/store/sessionStore';
 
 export function ProfilePage() {
   const { profile } = useSessionStore();
-  const xpPct = Math.round((profile.xp / profile.xpToNext) * 100);
+  const xp = Number.isFinite(profile.xp) ? profile.xp : 0;
+  const xpToNext = Number.isFinite(profile.xpToNext) && profile.xpToNext > 0 ? profile.xpToNext : 100;
+  const xpPct = Math.min(100, Math.max(0, Math.round((xp / xpToNext) * 100)));
   const rank = profile.globalRank > 0 ? `#${profile.globalRank}` : '—';
 
   return (
@@ -25,7 +27,7 @@ export function ProfilePage() {
         <div className="flex justify-between text-xs text-[var(--app-hint)] mb-1">
           <span>XP</span>
           <span>
-            {profile.xp} / {profile.xpToNext}
+            {xp} / {xpToNext}
           </span>
         </div>
         <div className="h-2 rounded-full bg-white/10 overflow-hidden">

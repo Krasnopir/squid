@@ -1,16 +1,13 @@
 import { castVote } from '@/api/roomApi';
 import { PlayerGrid } from '@/components/ui/PlayerGrid';
 import { Timer } from '@/components/ui/Timer';
-import { getTelegramUser } from '@/lib/telegram';
 import type { Room } from '@/types';
 
 export function RoomVote({ room, onUpdate }: { room: Room; onUpdate: (r: Room) => void }) {
   const alive = room.players.filter(p => p.isAlive);
   const totalRounds = Math.max(1, room.maxPlayers - 1);
-  const me = getTelegramUser();
 
   const vote = async (targetId: number) => {
-    if (targetId === me.id) return;
     const r = await castVote(room.id, targetId);
     onUpdate(r);
   };
