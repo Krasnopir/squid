@@ -42,10 +42,6 @@ create table if not exists public.rooms (
   phase_ends_at timestamptz,
   entry_fee int not null default 10,
   winner_id bigint references public.users(id),
-  last_eliminated_ids bigint[],
-  last_vote_result jsonb,
-  last_dilemma_result jsonb,
-  last_final_result jsonb,
   is_private boolean not null default false,
   created_at timestamptz not null default now()
 );
@@ -147,10 +143,6 @@ begin
     'phaseEndsAt', rm.phase_ends_at,
     'entryFee', rm.entry_fee,
     'winnerId', rm.winner_id,
-    'lastEliminatedIds', rm.last_eliminated_ids,
-    'lastVoteResult', rm.last_vote_result,
-    'lastDilemmaResult', rm.last_dilemma_result,
-    'lastFinalResult', rm.last_final_result,
     'players', coalesce((
       select jsonb_agg(jsonb_build_object(
         'userId', rp.user_id,
@@ -174,34 +166,17 @@ $$;
 create or replace function public.ensure_user(p_telegram_user jsonb)
 returns jsonb language plpgsql security definer set search_path = public as $$
 declare uid bigint := (p_telegram_user->>'id')::bigint;
-declare profile jsonb;
 begin
   insert into public.users (id, first_name, username)
   values (uid, p_telegram_user->>'first_name', p_telegram_user->>'username')
   on conflict (id) do update set first_name = excluded.first_name, username = excluded.username;
-  insert into public.balances (user_id, coins) values (uid, 0)
+  insert into public.balances (user_id, coins) values (uid, 50)
   on conflict (user_id) do nothing;
   if not exists (select 1 from public.transactions where user_id = uid and kind = 'signup_bonus') then
     update public.balances set coins = coins + 50 where user_id = uid;
     insert into public.transactions (user_id, kind, amount) values (uid, 'signup_bonus', 50);
   end if;
-  select jsonb_build_object(
-    'id', u.id,
-    'firstName', u.first_name,
-    'username', u.username,
-    'level', u.level,
-    'xp', u.xp,
-    'xpToNext', 100,
-    'gamesPlayed', u.games_played,
-    'wins', u.wins,
-    'globalRank', 9999,
-    'coins', b.coins,
-    'stars', b.stars
-  ) into profile
-  from public.users u
-  join public.balances b on b.user_id = u.id
-  where u.id = uid;
-  return profile;
+  return jsonb_build_object('id', uid);
 end;
 $$;
 
@@ -209,16 +184,12 @@ create or replace function public.create_room(p_user_id bigint, p_max_players in
 returns jsonb language plpgsql security definer set search_path = public as $$
 declare rid uuid;
 declare code text := public.gen_room_code();
-declare fee int := 10;
 begin
-  update public.balances set coins = coins - fee where user_id = p_user_id and coins >= fee;
-  if not found then raise exception 'insufficient_coins'; end if;
   insert into public.rooms (code, host_id, max_players, is_private, mode)
   values (code, p_user_id, p_max_players, p_is_private, case when p_max_players <= 2 then 'duel' else 'classic' end)
   returning id into rid;
   insert into public.room_players (room_id, user_id, display_name, username, seat, is_ready)
   select rid, u.id, u.first_name, u.username, 0, true from public.users u where u.id = p_user_id;
-  update public.rooms set pot = pot + fee where id = rid;
   return public.get_room_state(rid);
 end;
 $$;
@@ -227,21 +198,12 @@ create or replace function public.join_room(p_user_id bigint, p_code text defaul
 returns jsonb language plpgsql security definer set search_path = public as $$
 declare rid uuid;
 declare fee int;
-declare current_count int;
-declare max_count int;
-declare room_status text;
 begin
   if p_room_id is not null then rid := p_room_id;
   else select id into rid from public.rooms where code = p_code;
   end if;
   if rid is null then raise exception 'room_not_found'; end if;
-  if exists (select 1 from public.room_players where room_id = rid and user_id = p_user_id) then
-    return public.get_room_state(rid);
-  end if;
-  select entry_fee, max_players, status into fee, max_count, room_status from public.rooms where id = rid;
-  if room_status <> 'waiting' then raise exception 'room_started'; end if;
-  select count(*) into current_count from public.room_players where room_id = rid;
-  if current_count >= max_count then raise exception 'room_full'; end if;
+  select entry_fee into fee from public.rooms where id = rid;
   update public.balances set coins = coins - fee where user_id = p_user_id and coins >= fee;
   if not found then raise exception 'insufficient_coins'; end if;
   insert into public.room_players (room_id, user_id, display_name, username, seat)
@@ -250,10 +212,6 @@ begin
   from public.users u where u.id = p_user_id
   on conflict do nothing;
   update public.rooms set pot = pot + fee where id = rid;
-  select count(*) into current_count from public.room_players where room_id = rid;
-  if current_count >= 2 then
-    update public.rooms set phase_ends_at = now() + interval '30 seconds' where id = rid and status = 'waiting';
-  end if;
   return public.get_room_state(rid);
 end;
 $$;
@@ -278,7 +236,8 @@ begin
   if cnt < 2 then raise exception 'not_enough_players'; end if;
   ph := case when (select mode from public.rooms where id = p_room_id) = 'duel' then 'finals' else 'vote' end;
   update public.rooms set status = 'playing', phase = ph, round_index = 0,
-    phase_ends_at = now() + interval '30 seconds'
+    phase_ends_at = now() + interval '30 seconds',
+    pot = pot + entry_fee * cnt
   where id = p_room_id;
   return public.get_room_state(p_room_id);
 end;
