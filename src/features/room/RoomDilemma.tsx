@@ -2,10 +2,13 @@ import { motion } from 'framer-motion';
 
 import { castDilemma } from '@/api/roomApi';
 import { Timer } from '@/components/ui/Timer';
+import { getTelegramUser } from '@/lib/telegram';
 import type { Room } from '@/types';
 
 export function RoomDilemma({ room, onUpdate }: { room: Room; onUpdate: (r: Room) => void }) {
   const alive = room.players.filter(p => p.isAlive);
+  const me = getTelegramUser();
+  const myChoice = alive.find(p => p.userId === me.id)?.dilemmaChoice;
 
   const choose = async (choice: 'split' | 'risk') => {
     const r = await castDilemma(room.id, choice);
@@ -23,19 +26,26 @@ export function RoomDilemma({ room, onUpdate }: { room: Room; onUpdate: (r: Room
       <div className="flex gap-3 w-full max-w-sm">
         <motion.button
           whileTap={{ scale: 0.96 }}
-          className="btn-split flex-1 py-5 font-bold text-lg"
+          className={`btn-split flex-1 py-5 font-bold text-lg ${myChoice === 'split' ? 'ring-2 ring-white/70' : ''}`}
           onClick={() => choose('split')}
+          disabled={!!myChoice}
         >
           Split
         </motion.button>
         <motion.button
           whileTap={{ scale: 0.96 }}
-          className="btn-risk flex-1 py-5 font-bold text-lg"
+          className={`btn-risk flex-1 py-5 font-bold text-lg ${myChoice === 'risk' ? 'ring-2 ring-white/70' : ''}`}
           onClick={() => choose('risk')}
+          disabled={!!myChoice}
         >
           Risk
         </motion.button>
       </div>
+      {myChoice && (
+        <p className="text-sm text-[var(--app-hint)]">
+          Выбор принят. Результат откроется после остальных игроков или таймера.
+        </p>
+      )}
       <div className="flex gap-2 flex-wrap justify-center">
         {alive.map(p => (
           <span

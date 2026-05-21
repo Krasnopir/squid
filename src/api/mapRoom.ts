@@ -29,5 +29,11 @@ export function mapRoom(raw: Record<string, unknown> | null): Room | null {
           rpsChoice: p.rpsChoice as Room['players'][0]['rpsChoice'],
         }))
       : [],
+    lastEliminatedIds: Array.isArray(raw.lastEliminatedIds)
+      ? raw.lastEliminatedIds.map(id => Number(id))
+      : undefined,
+    lastVoteResult: raw.lastVoteResult as Room['lastVoteResult'],
+    lastDilemmaResult: raw.lastDilemmaResult as Room['lastDilemmaResult'],
+    lastFinalResult: raw.lastFinalResult as Room['lastFinalResult'],
   };
 }

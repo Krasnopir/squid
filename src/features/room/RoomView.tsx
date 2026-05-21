@@ -3,8 +3,10 @@ import { useRoomStore } from '@/store/roomStore';
 import type { Room } from '@/types';
 
 import { RoomDilemma } from './RoomDilemma';
+import { RoomDilemmaReveal } from './RoomDilemmaReveal';
 import { RoomElimination } from './RoomElimination';
 import { RoomFinals } from './RoomFinals';
+import { RoomFinalReveal } from './RoomFinalReveal';
 import { RoomLobby } from './RoomLobby';
 import { RoomResults } from './RoomResults';
 import { RoomVote } from './RoomVote';
@@ -29,8 +31,10 @@ export function RoomView({ roomId }: { roomId: string }) {
   }
   if (room.phase === 'vote') return <RoomVote room={room} onUpdate={onUpdate} />;
   if (room.phase === 'dilemma') return <RoomDilemma room={room} onUpdate={onUpdate} />;
+  if (room.phase === 'dilemma_reveal') return <RoomDilemmaReveal room={room} />;
   if (room.phase === 'reveal_elimination') return <RoomElimination room={room} />;
   if (room.phase === 'finals') return <RoomFinals room={room} onUpdate={onUpdate} />;
+  if (room.phase === 'finals_reveal') return <RoomFinalReveal room={room} />;
   if (room.phase === 'results') return <RoomResults room={room} />;
 
   return <RoomLobby room={room} onUpdate={onUpdate} />;

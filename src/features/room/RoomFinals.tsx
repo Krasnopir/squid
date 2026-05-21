@@ -49,13 +49,20 @@ export function RoomFinals({ room, onUpdate }: { room: Room; onUpdate: (r: Room)
             whileTap={{ scale: 0.92 }}
             disabled={!!myChoice}
             onClick={() => pick(choice)}
-            className="card-surface flex flex-col items-center gap-2 py-6 disabled:opacity-50"
+            className={`card-surface flex flex-col items-center gap-2 py-6 disabled:opacity-70 ${
+              myChoice === choice ? 'border-[var(--trust-gold)] bg-[var(--trust-gold)]/10' : ''
+            }`}
           >
             <Icon size={36} className="text-[var(--trust-gold)]" />
             <span className="text-sm">{label}</span>
           </motion.button>
         ))}
       </div>
+      {myChoice && (
+        <p className="text-center text-sm text-[var(--app-hint)]">
+          Выбор принят. Ждем соперника или окончание таймера.
+        </p>
+      )}
     </div>
   );
 }

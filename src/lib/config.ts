@@ -12,7 +12,11 @@ export const PHASE_DURATIONS = {
   lobby: 0,
   vote: 30,
   dilemma: 25,
+  dilemma_reveal: 3,
   reveal_elimination: 3,
   finals: 15,
+  finals_reveal: 3,
   results: 60,
 } as const;
+
+export const LOBBY_AUTOSTART_SECONDS = Number(import.meta.env.VITE_LOBBY_AUTOSTART_SECONDS ?? 30);

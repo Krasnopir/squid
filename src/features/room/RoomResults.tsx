@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { Link } from '@tanstack/react-router';
 import { Share2, Trophy } from 'lucide-react';
+import { useState } from 'react';
 
 import { getTelegramUser, hapticNotification, shareResult } from '@/lib/telegram';
 import { useSessionStore } from '@/store/sessionStore';
@@ -12,20 +13,22 @@ export function RoomResults({ room }: { room: Room }) {
   const won = room.winnerId === me.id;
   const alive = room.players.filter(p => p.isAlive);
   const splitWin = !room.winnerId && room.status === 'finished';
+  const reward = splitWin
+    ? Math.floor(room.pot / Math.max(1, alive.length))
+    : won
+      ? room.pot
+      : 0;
+  const [claimed, setClaimed] = useState(false);
 
   const claim = () => {
-    const amount = splitWin
-      ? Math.floor(room.pot / Math.max(1, alive.length))
-      : won
-        ? room.pot
-        : 0;
-    if (amount > 0) {
-      addCoins(amount);
+    if (reward > 0 && !claimed) {
+      addCoins(reward);
       setProfile({
         wins: profile.wins + (won ? 1 : 0),
         gamesPlayed: profile.gamesPlayed + 1,
         xp: profile.xp + (won ? 50 : 15),
       });
+      setClaimed(true);
       hapticNotification('success');
     }
   };
@@ -43,15 +46,17 @@ export function RoomResults({ room }: { room: Room }) {
         {splitWin ? 'Банк поделён!' : won ? 'Победа!' : 'Игра окончена'}
       </h1>
       <p className="text-[var(--trust-gold)] text-xl font-semibold">
-        {won || splitWin ? `+${splitWin ? Math.floor(room.pot / alive.length) : room.pot} монет` : 'Повезёт в следующий раз'}
+        {reward > 0 ? `+${reward} игровых монет` : 'Вы выбыли без награды'}
       </p>
       <div className="player-avatar alive mx-auto w-20 h-20 text-2xl border-[var(--trust-gold)]">
         {me.first_name.slice(0, 2).toUpperCase()}
       </div>
       <div className="flex flex-col gap-2 w-full max-w-xs">
-        <button type="button" className="btn-primary py-4 w-full" onClick={claim}>
-          Забрать награду
-        </button>
+        {reward > 0 && (
+          <button type="button" className="btn-primary py-4 w-full" onClick={claim} disabled={claimed}>
+            {claimed ? 'Награда начислена' : 'Забрать игровые монеты'}
+          </button>
+        )}
         <button
           type="button"
           className="card-surface py-3 w-full flex items-center justify-center gap-2"

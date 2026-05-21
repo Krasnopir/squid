@@ -14,7 +14,10 @@ export function Layout() {
   }, []);
 
   return (
-    <div className="flex h-full flex-col" style={{ background: 'var(--app-bg)' }}>
+    <div
+      className="flex min-h-dvh flex-col"
+      style={{ background: 'var(--app-bg)', ['--bottom-nav-space' as string]: '96px' }}
+    >
       <header
         className="flex shrink-0 items-center justify-between px-4"
         style={{
@@ -37,7 +40,7 @@ export function Layout() {
           </div>
         )}
       </header>
-      <main className="min-h-0 flex-1 overflow-hidden">
+      <main className="min-h-0 flex-1">
         <Outlet />
       </main>
       <BottomNav />

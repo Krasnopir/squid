@@ -9,7 +9,7 @@ serve(async () => {
   const { data: rooms } = await supabase
     .from('rooms')
     .select('id')
-    .eq('status', 'playing')
+    .in('status', ['waiting', 'playing'])
     .lt('phase_ends_at', new Date().toISOString());
 
   for (const r of rooms ?? []) {

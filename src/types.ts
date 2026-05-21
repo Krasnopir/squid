@@ -2,8 +2,10 @@ export type Phase =
   | 'lobby'
   | 'vote'
   | 'dilemma'
+  | 'dilemma_reveal'
   | 'reveal_elimination'
   | 'finals'
+  | 'finals_reveal'
   | 'results';
 
 export type DilemmaChoice = 'split' | 'risk';
@@ -45,6 +47,22 @@ export interface Room {
   entryFee: number;
   players: RoomPlayer[];
   lastEliminated?: RoomPlayer;
+  lastEliminatedIds?: number[];
+  lastVoteResult?: {
+    reason: 'majority' | 'tie' | 'low_turnout';
+    tally: Array<{ userId: number; votes: number }>;
+  };
+  lastDilemmaResult?: {
+    outcome: 'split' | 'risk';
+    splitCount: number;
+    riskCount: number;
+    endMatch: boolean;
+  };
+  lastFinalResult?: {
+    choices: Array<{ userId: number; choice: RpsChoice }>;
+    winnerId?: number;
+    draw: boolean;
+  };
   winnerId?: number;
 }
 

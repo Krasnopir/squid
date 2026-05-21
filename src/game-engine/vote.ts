@@ -3,6 +3,7 @@ import type { RoomPlayer } from '@/types';
 export interface VoteResult {
   eliminated: RoomPlayer[];
   reason: 'majority' | 'tie' | 'low_turnout';
+  tally: Array<{ userId: number; votes: number }>;
 }
 
 export function resolveVote(
@@ -23,6 +24,7 @@ export function resolveVote(
     return {
       eliminated: pickRandom(alive, calcElimCount(alive.length, 2)),
       reason: 'low_turnout',
+      tally: formatTally(tally),
     };
   }
 
@@ -34,6 +36,7 @@ export function resolveVote(
     return {
       eliminated: pickRandom(targets.length ? targets : alive, calcElimCount(alive.length, 2)),
       reason: 'tie',
+      tally: formatTally(tally),
     };
   }
 
@@ -42,6 +45,7 @@ export function resolveVote(
   return {
     eliminated: target ? [target] : pickRandom(alive, 1),
     reason: 'majority',
+    tally: formatTally(tally),
   };
 }
 
@@ -58,4 +62,10 @@ function pickRandom<T>(arr: T[], count: number): T[] {
     out.push(pool.splice(idx, 1)[0]!);
   }
   return out;
+}
+
+function formatTally(tally: Map<number, number>): Array<{ userId: number; votes: number }> {
+  return [...tally.entries()]
+    .map(([userId, votes]) => ({ userId, votes }))
+    .sort((a, b) => b.votes - a.votes);
 }

@@ -1,6 +1,6 @@
 import { useNavigate } from '@tanstack/react-router';
 import { Loader2 } from 'lucide-react';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 import { enqueueQuickGame } from '@/api/roomApi';
 import { useRoomStore } from '@/store/roomStore';
@@ -8,19 +8,24 @@ import { useRoomStore } from '@/store/roomStore';
 export function QueuePage() {
   const navigate = useNavigate();
   const { queueStatus, setQueueStatus, setRoom } = useRoomStore();
+  const [error, setError] = useState('');
 
   useEffect(() => {
     setQueueStatus('searching');
     let cancelled = false;
     (async () => {
       try {
+        setError('');
         const room = await enqueueQuickGame(6);
         if (cancelled) return;
         setRoom(room);
         setQueueStatus('matched');
         navigate({ to: '/room/$roomId', params: { roomId: room.id } });
-      } catch {
-        if (!cancelled) setQueueStatus('idle');
+      } catch (e) {
+        if (!cancelled) {
+          setError(e instanceof Error ? e.message : 'Не удалось найти матч');
+          setQueueStatus('idle');
+        }
       }
     })();
     return () => {
@@ -37,6 +42,7 @@ export function QueuePage() {
           ? 'Подбираем комнату. Если мало людей — добавим ботов для старта.'
           : 'Комната найдена!'}
       </p>
+      {error && <p className="text-sm text-red-400 text-center max-w-xs">{error}</p>}
     </div>
   );
 }

@@ -18,7 +18,7 @@ export function BottomNav() {
   if (hide) return null;
 
   return (
-    <div className={cn('nav-island-wrap', hide && 'hidden')}>
+    <div className="nav-island-wrap" aria-label="Основная навигация">
       <nav className="nav-island">
         {TABS.map(({ to, Icon, label }) => {
           const active = to === '/' ? pathname === '/' : pathname.startsWith(to);

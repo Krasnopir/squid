@@ -1,5 +1,5 @@
 import { Link, useNavigate } from '@tanstack/react-router';
-import { HelpCircle, Lock, Plus, Zap } from 'lucide-react';
+import { HelpCircle, Lock, Plus, Users, Zap } from 'lucide-react';
 import { useState } from 'react';
 
 import { createRoom } from '@/api/roomApi';
@@ -10,15 +10,20 @@ export function HomePage() {
   const navigate = useNavigate();
   const setRoom = useRoomStore(s => s.setRoom);
   const [creating, setCreating] = useState(false);
+  const [maxPlayers, setMaxPlayers] = useState(6);
+  const [error, setError] = useState('');
 
   const quick = () => navigate({ to: '/queue' });
 
   const create = async (max: number) => {
+    setError('');
     setCreating(true);
     try {
       const room = await createRoom(max, false);
       setRoom(room);
       navigate({ to: '/room/$roomId', params: { roomId: room.id } });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Не удалось создать комнату');
     } finally {
       setCreating(false);
     }
@@ -51,16 +56,36 @@ export function HomePage() {
         type="button"
         disabled={creating}
         className="card-surface p-4 flex items-center gap-4 w-full text-left"
-        onClick={() => create(6)}
+        onClick={() => create(maxPlayers)}
       >
         <div className="w-12 h-12 rounded-xl bg-[var(--trust-gold)]/15 flex items-center justify-center">
           <Plus className="text-[var(--trust-gold)]" />
         </div>
-        <div>
+        <div className="min-w-0 flex-1">
           <p className="font-semibold">Создать комнату</p>
-          <p className="text-xs text-[var(--app-hint)]">Пригласи друзей — до 6 человек</p>
+          <p className="text-xs text-[var(--app-hint)]">Пригласи друзей — до {maxPlayers} человек</p>
         </div>
+        <Users size={18} className="text-[var(--app-hint)]" />
       </button>
+
+      <div className="flex gap-2" aria-label="Размер комнаты">
+        {[2, 3, 4, 5, 6].map(size => (
+          <button
+            key={size}
+            type="button"
+            onClick={() => setMaxPlayers(size)}
+            className={`h-10 flex-1 rounded-xl text-sm font-semibold ${
+              maxPlayers === size
+                ? 'bg-[var(--trust-gold)]/20 text-[var(--trust-gold)]'
+                : 'bg-white/5 text-[var(--app-hint)]'
+            }`}
+          >
+            {size}
+          </button>
+        ))}
+      </div>
+
+      {error && <p className="text-sm text-red-400">{error}</p>}
 
       <Link
         to="/room/join"

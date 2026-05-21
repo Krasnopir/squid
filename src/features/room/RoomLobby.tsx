@@ -1,8 +1,9 @@
 import { Button } from '@telegram-apps/telegram-ui';
-import { Check, Copy, Users } from 'lucide-react';
+import { AlertCircle, Check, Copy, Users } from 'lucide-react';
 import { useState } from 'react';
 
 import { PlayerGrid } from '@/components/ui/PlayerGrid';
+import { Timer } from '@/components/ui/Timer';
 import { setRoomReady, startRoom } from '@/api/roomApi';
 import { getTelegramUser } from '@/lib/telegram';
 import { hapticNotification } from '@/lib/telegram';
@@ -20,27 +21,48 @@ export function RoomLobby({
   const isHost = room.hostId === me.id;
   const readyCount = room.players.filter(p => p.isReady).length;
   const [copied, setCopied] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const canStart = room.players.length >= 2 && room.players.every(p => p.isReady);
 
   const toggleReady = async () => {
-    const r = await setRoomReady(room.id, !myPlayer?.isReady);
-    onUpdate(r);
+    setError('');
+    setBusy(true);
+    try {
+      const r = await setRoomReady(room.id, !myPlayer?.isReady);
+      onUpdate(r);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Не удалось изменить готовность');
+    } finally {
+      setBusy(false);
+    }
   };
 
   const handleStart = async () => {
-    const r = await startRoom(room.id);
-    onUpdate(r);
-    hapticNotification('success');
+    setError('');
+    setBusy(true);
+    try {
+      const r = await startRoom(room.id);
+      onUpdate(r);
+      hapticNotification('success');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Не удалось начать игру');
+    } finally {
+      setBusy(false);
+    }
   };
 
-  const copyCode = () => {
-    navigator.clipboard.writeText(room.code);
+  const copyCode = async () => {
+    await navigator.clipboard.writeText(room.code);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const invite = () => {
+  const invite = async () => {
     const url = `${window.location.origin}?startapp=room_${room.code}`;
-    navigator.clipboard.writeText(url);
+    await navigator.clipboard.writeText(url);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   return (
@@ -61,7 +83,21 @@ export function RoomLobby({
         <span className="text-sm text-[var(--app-hint)]">· {readyCount} готовы</span>
       </div>
 
+      {room.players.length >= 2 && room.phaseEndsAt && (
+        <div className="card-surface flex items-center justify-between p-4">
+          <span className="text-sm text-[var(--app-hint)]">Автостарт</span>
+          <Timer endsAt={room.phaseEndsAt} />
+        </div>
+      )}
+
       <PlayerGrid players={room.players} />
+
+      {error && (
+        <div className="flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300">
+          <AlertCircle size={16} />
+          <span>{error}</span>
+        </div>
+      )}
 
       <div className="flex flex-col gap-2 mt-auto">
         <Button
@@ -69,12 +105,18 @@ export function RoomLobby({
           stretched
           size="l"
           onClick={toggleReady}
+          disabled={busy}
         >
           {myPlayer?.isReady ? 'Не готов' : 'Готов'}
         </Button>
         {isHost && (
-          <button type="button" className="btn-primary w-full py-4 text-base" onClick={handleStart}>
-            Начать игру
+          <button
+            type="button"
+            className="btn-primary w-full py-4 text-base disabled:opacity-45"
+            onClick={handleStart}
+            disabled={busy || !canStart}
+          >
+            {room.players.length < 2 ? 'Нужен второй игрок' : 'Начать игру'}
           </button>
         )}
         <Button mode="plain" stretched onClick={invite}>

@@ -1,4 +1,4 @@
-import { PHASE_DURATIONS, ROOM_ENTRY_FEE } from '@/lib/config';
+import { LOBBY_AUTOSTART_SECONDS, PHASE_DURATIONS, ROOM_ENTRY_FEE } from '@/lib/config';
 import { getTelegramUser } from '@/lib/telegram';
 import {
   botDilemmaChoice,
@@ -23,7 +23,14 @@ function phaseEnd(seconds: number): string {
   return new Date(Date.now() + seconds * 1000).toISOString();
 }
 
-export function createMockRoom(maxPlayers: number, isPrivate = false): Room {
+function lobbyAutostart(room: Room): Room {
+  if (room.status !== 'waiting') return room;
+  if (room.players.length < 2) return { ...room, phaseEndsAt: null };
+  return { ...room, phaseEndsAt: phaseEnd(LOBBY_AUTOSTART_SECONDS) };
+}
+
+export function createMockRoom(maxPlayers: number, _isPrivate = false): Room {
+  void _isPrivate;
   const human = getTelegramUser();
   roomCounter++;
   const id = `mock-${roomCounter}`;
@@ -74,7 +81,7 @@ export function joinMockRoom(room: Room): Room {
   const human = getTelegramUser();
   if (room.players.some(p => p.userId === human.id)) return room;
   if (room.players.length >= room.maxPlayers) return room;
-  return {
+  return lobbyAutostart({
     ...room,
     players: [
       ...room.players,
@@ -88,7 +95,7 @@ export function joinMockRoom(room: Room): Room {
         isBot: false,
       },
     ],
-  };
+  });
 }
 
 export function setReady(room: Room, userId: number, ready: boolean): Room {
@@ -109,6 +116,10 @@ export function startMockRoom(room: Room): Room {
     phase,
     roundIndex: 0,
     phaseEndsAt: phaseEnd(PHASE_DURATIONS[phase]),
+    lastDilemmaResult: undefined,
+    lastFinalResult: undefined,
+    lastVoteResult: undefined,
+    lastEliminatedIds: undefined,
   };
 }
 
@@ -176,6 +187,10 @@ export function submitRps(room: Room, userId: number, choice: RpsChoice): Room {
 }
 
 export function tickRoom(room: Room): Room {
+  if (room.status === 'waiting' && room.players.length >= 2 && room.phaseEndsAt) {
+    if (new Date(room.phaseEndsAt).getTime() <= Date.now()) return startMockRoom(room);
+    return room;
+  }
   if (room.status !== 'playing' || !room.phaseEndsAt) return room;
   if (new Date(room.phaseEndsAt).getTime() > Date.now()) return autofillBots(room);
   return advancePhase(autofillBots(room));
@@ -189,9 +204,9 @@ export function advancePhase(room: Room): Room {
     for (const p of alive) {
       if (p.voteTarget) votes.set(p.userId, p.voteTarget);
     }
-    const { eliminated } = resolveVote(alive, votes);
+    const { eliminated, reason, tally } = resolveVote(alive, votes);
     const eliminatedIds = new Set(eliminated.map(e => e.userId));
-    let r: Room = {
+    const r: Room = {
       ...room,
       players: room.players.map(p => ({
         ...p,
@@ -199,6 +214,8 @@ export function advancePhase(room: Room): Room {
         voteTarget: undefined,
       })),
       lastEliminated: eliminated[0],
+      lastEliminatedIds: eliminated.map(p => p.userId),
+      lastVoteResult: { reason, tally },
       phase: 'reveal_elimination',
       phaseEndsAt: phaseEnd(PHASE_DURATIONS.reveal_elimination),
     };
@@ -219,6 +236,7 @@ export function advancePhase(room: Room): Room {
       phase,
       phaseEndsAt: phaseEnd(PHASE_DURATIONS[phase]),
       lastEliminated: undefined,
+      lastEliminatedIds: undefined,
       players: room.players.map(p => ({
         ...p,
         dilemmaChoice: undefined,
@@ -233,8 +251,23 @@ export function advancePhase(room: Room): Room {
       if (p.dilemmaChoice) choices.set(p.userId, p.dilemmaChoice);
     }
     const { outcome, endMatch } = resolveDilemma(alive, choices);
-    if (endMatch && outcome === 'split') {
-      const share = Math.floor(room.pot / alive.length);
+    return {
+      ...room,
+      lastDilemmaResult: {
+        outcome,
+        endMatch,
+        splitCount: choicesToCount(alive, choices, 'split'),
+        riskCount: choicesToCount(alive, choices, 'risk', true),
+      },
+      phase: 'dilemma_reveal',
+      phaseEndsAt: phaseEnd(PHASE_DURATIONS.dilemma_reveal),
+    };
+  }
+
+  if (room.phase === 'dilemma_reveal') {
+    const result = room.lastDilemmaResult;
+    if (result?.endMatch && result.outcome === 'split') {
+      const share = Math.floor(room.pot / Math.max(1, alive.length));
       return {
         ...room,
         status: 'finished',
@@ -245,7 +278,7 @@ export function advancePhase(room: Room): Room {
         players: room.players.map(p => ({ ...p, dilemmaChoice: undefined })),
       };
     }
-    const newPot = outcome === 'risk' ? room.pot + room.entryFee * alive.length : room.pot;
+    const newPot = result?.outcome === 'risk' ? room.pot + room.entryFee * alive.length : room.pot;
     const roundIndex = room.roundIndex + 1;
     const phase = nextPhase({
       aliveCount: alive.length,
@@ -258,6 +291,7 @@ export function advancePhase(room: Room): Room {
       roundIndex,
       phase,
       phaseEndsAt: phaseEnd(PHASE_DURATIONS[phase]),
+      lastDilemmaResult: undefined,
       players: room.players.map(p => ({ ...p, dilemmaChoice: undefined })),
     };
   }
@@ -276,22 +310,57 @@ export function advancePhase(room: Room): Room {
     const c1 = p1.rpsChoice ?? botRpsChoice();
     const c2 = p2.rpsChoice ?? botRpsChoice();
     const { winner, draw } = resolveRps(p1, c1, p2, c2);
-    if (draw) {
+    const choices = [
+      { userId: p1.userId, choice: c1 },
+      { userId: p2.userId, choice: c2 },
+    ];
+    return {
+      ...room,
+      lastFinalResult: { choices, winnerId: winner?.userId, draw },
+      phase: 'finals_reveal',
+      phaseEndsAt: phaseEnd(PHASE_DURATIONS.finals_reveal),
+      players: room.players.map(p =>
+        p.userId === p1.userId
+          ? { ...p, rpsChoice: c1 }
+          : p.userId === p2.userId
+            ? { ...p, rpsChoice: c2 }
+            : p,
+      ),
+    };
+  }
+
+  if (room.phase === 'finals_reveal') {
+    const result = room.lastFinalResult;
+    if (result?.draw) {
       return {
         ...room,
-        players: room.players.map(p => ({ ...p, rpsChoice: undefined })),
+        phase: 'finals',
         phaseEndsAt: phaseEnd(PHASE_DURATIONS.finals),
+        players: room.players.map(p => ({ ...p, rpsChoice: undefined })),
       };
     }
     return {
       ...room,
       status: 'finished',
       phase: 'results',
-      winnerId: winner?.userId,
+      winnerId: result?.winnerId,
       phaseEndsAt: phaseEnd(PHASE_DURATIONS.results),
       players: room.players.map(p => ({ ...p, rpsChoice: undefined })),
     };
   }
 
   return room;
+}
+
+function choicesToCount(
+  alive: RoomPlayer[],
+  choices: Map<number, DilemmaChoice>,
+  choice: DilemmaChoice,
+  countMissingAsRisk = false,
+): number {
+  return alive.filter(p => {
+    const selected = choices.get(p.userId);
+    if (!selected && countMissingAsRisk) return choice === 'risk';
+    return selected === choice;
+  }).length;
 }

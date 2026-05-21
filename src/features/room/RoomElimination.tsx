@@ -6,8 +6,16 @@ import { hapticNotification } from '@/lib/telegram';
 import type { Room } from '@/types';
 
 export function RoomElimination({ room }: { room: Room }) {
-  const eliminated = room.lastEliminated;
+  const eliminatedIds = new Set(room.lastEliminatedIds ?? (room.lastEliminated ? [room.lastEliminated.userId] : []));
+  const eliminated = room.players.filter(p => eliminatedIds.has(p.userId));
   const remaining = room.players.filter(p => p.isAlive);
+  const reason = room.lastVoteResult?.reason;
+  const reasonText =
+    reason === 'majority'
+      ? 'Большинство выбрало цель.'
+      : reason === 'tie'
+        ? 'Голоса разделились, система добила случайностью.'
+        : 'Комната не набрала активность, система выбила случайно.';
 
   useEffect(() => {
     hapticNotification('warning');
@@ -29,11 +37,31 @@ export function RoomElimination({ room }: { room: Room }) {
             💥
           </motion.div>
           <h1 className="text-2xl font-bold text-[var(--trust-red)]">
-            {eliminated?.displayName ?? 'Игрок'} выбыл
+            {eliminated.length > 1
+              ? `${eliminated.map(p => p.displayName).join(', ')} выбыли`
+              : `${eliminated[0]?.displayName ?? 'Игрок'} выбыл`}
           </h1>
-          <p className="text-sm text-[var(--app-hint)] mt-2">Остальные продолжают…</p>
+          <p className="text-sm text-[var(--app-hint)] mt-2">{reasonText}</p>
         </motion.div>
       </AnimatePresence>
+      {!!room.lastVoteResult?.tally.length && (
+        <div className="card-surface w-full max-w-sm p-3">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--app-hint)]">
+            Расклад голосов
+          </p>
+          <div className="flex flex-col gap-2">
+            {room.lastVoteResult.tally.map(row => {
+              const player = room.players.find(p => p.userId === row.userId);
+              return (
+                <div key={row.userId} className="flex items-center justify-between text-sm">
+                  <span>{player?.displayName ?? 'Игрок'}</span>
+                  <span className="font-semibold text-[var(--trust-gold)]">{row.votes}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
       <PlayerGrid players={remaining} />
     </div>
   );
