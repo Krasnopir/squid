@@ -1,0 +1,138 @@
+.btn-primary {
+  background: linear-gradient(180deg, var(--trust-red) 0%, var(--trust-red-dim) 100%);
+  color: var(--app-btn-text);
+  border: none;
+  border-radius: 14px;
+  font-weight: 600;
+  box-shadow: var(--glow-red);
+}
+
+.btn-primary:disabled {
+  opacity: 0.45;
+  box-shadow: none;
+}
+
+.btn-split {
+  background: linear-gradient(180deg, var(--trust-green) 0%, var(--trust-green-dim) 100%);
+  color: #fff;
+  border-radius: 14px;
+  font-weight: 600;
+}
+
+.btn-risk {
+  background: linear-gradient(180deg, var(--trust-red) 0%, var(--trust-red-dim) 100%);
+  color: #fff;
+  border-radius: 14px;
+  font-weight: 600;
+}
+
+.card-surface {
+  background: var(--app-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: 16px;
+}
+
+.nav-island-wrap {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
+  z-index: 40;
+  pointer-events: none;
+}
+
+.nav-island {
+  display: flex;
+  max-width: 420px;
+  margin: 0 auto;
+  background: rgba(26, 26, 30, 0.95);
+  border: 1px solid var(--border-subtle);
+  border-radius: 28px;
+  padding: 6px;
+  backdrop-filter: blur(12px);
+  pointer-events: auto;
+}
+
+.nav-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 4px;
+  border: none;
+  background: transparent;
+  color: var(--app-hint);
+  font-size: 10px;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+
+.nav-item.active {
+  color: var(--trust-gold);
+  background: rgba(212, 175, 55, 0.12);
+}
+
+.nav-label {
+  font-size: 10px;
+}
+
+.mask-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, #3a1515, #0d0d0f);
+  border: 2px solid var(--trust-red);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+}
+
+.player-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--app-secondary);
+  border: 2px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.player-avatar.alive {
+  border-color: var(--trust-green);
+}
+
+.player-avatar.out {
+  opacity: 0.35;
+  border-color: var(--trust-red-dim);
+}
+
+.player-avatar.selected {
+  border-color: var(--trust-gold);
+  box-shadow: var(--glow-gold);
+}
+
+.timer-ring {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: var(--trust-gold);
+}
+
+.elimination-bg {
+  background: radial-gradient(ellipse at center, rgba(196, 30, 58, 0.35) 0%, transparent 70%),
+    var(--app-bg);
+}
+
+.pot-badge {
+  background: rgba(212, 175, 55, 0.15);
+  border: 1px solid rgba(212, 175, 55, 0.35);
+  color: var(--trust-gold);
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-weight: 600;
+}
