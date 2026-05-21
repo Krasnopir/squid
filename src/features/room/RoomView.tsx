@@ -1,3 +1,5 @@
+import { Link } from '@tanstack/react-router';
+
 import { useRoomSync } from '@/hooks/useRoomSync';
 import { useRoomStore } from '@/store/roomStore';
 import type { Room } from '@/types';
@@ -25,6 +27,23 @@ export function RoomView({ roomId }: { roomId: string }) {
   }
 
   const onUpdate = (r: Room) => setRoom(r);
+
+  if (room.status === 'cancelled' || room.status === 'expired') {
+    const title = room.status === 'expired' ? 'Комната протухла' : 'Комната закрыта';
+    const text =
+      room.status === 'expired'
+        ? 'Игроки не собрались вовремя. Монеты не списаны.'
+        : 'Все вышли до старта. Монеты не списаны.';
+    return (
+      <div className="page-scroll page-pad flex min-h-[60vh] flex-col items-center justify-center gap-4 text-center">
+        <h2 className="text-xl font-bold">{title}</h2>
+        <p className="max-w-xs text-sm text-[var(--app-hint)]">{text}</p>
+        <Link to="/" className="btn-primary px-5 py-3">
+          На главную
+        </Link>
+      </div>
+    );
+  }
 
   if (room.status === 'waiting' || room.phase === 'lobby') {
     return <RoomLobby room={room} onUpdate={onUpdate} />;

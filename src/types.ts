@@ -28,6 +28,9 @@ export interface RoomPlayer {
   isReady: boolean;
   isAlive: boolean;
   isBot: boolean;
+  leftAt?: string;
+  lastSeenAt?: string;
+  afkStrikes?: number;
   voteTarget?: number;
   dilemmaChoice?: DilemmaChoice;
   rpsChoice?: RpsChoice;
@@ -37,7 +40,7 @@ export interface Room {
   id: string;
   code: string;
   hostId: number;
-  status: 'waiting' | 'playing' | 'finished';
+  status: 'waiting' | 'playing' | 'finished' | 'cancelled' | 'expired';
   maxPlayers: number;
   mode: 'classic' | 'duel';
   pot: number;

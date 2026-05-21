@@ -58,9 +58,9 @@ export async function fetchRoom(roomId: string): Promise<Room | null> {
   return mapRoom(data as Record<string, unknown>);
 }
 
-export async function createRoom(maxPlayers: number, isPrivate = false): Promise<Room> {
+export async function createRoom(maxPlayers: number, isPrivate = false, entryFee = 10): Promise<Room> {
   if (useMock) {
-    const room = cacheRoom(createMockRoom(maxPlayers, isPrivate));
+    const room = cacheRoom({ ...createMockRoom(maxPlayers, isPrivate), entryFee });
     return room;
   }
   await ensureRemoteUser();
@@ -70,6 +70,7 @@ export async function createRoom(maxPlayers: number, isPrivate = false): Promise
     p_user_id: u.id,
     p_max_players: maxPlayers,
     p_is_private: isPrivate,
+    p_entry_fee: entryFee,
   });
   if (error) throw roomError(error);
   return mapRoom(data as Record<string, unknown>)!;
@@ -118,6 +119,31 @@ export async function setRoomReady(roomId: string, ready: boolean): Promise<Room
   });
   if (error) throw roomError(error);
   return mapRoom(data as Record<string, unknown>)!;
+}
+
+export async function heartbeatRoom(roomId: string): Promise<Room | null> {
+  if (useMock) return getCached(roomId);
+  const sb = requireSupabase();
+  const { data, error } = await sb.rpc('heartbeat_room', {
+    p_room_id: roomId,
+    p_user_id: getTelegramUser().id,
+  });
+  if (error) throw roomError(error);
+  return mapRoom(data as Record<string, unknown>);
+}
+
+export async function leaveRoom(roomId: string): Promise<Room | null> {
+  if (useMock) {
+    rooms.delete(roomId);
+    return null;
+  }
+  const sb = requireSupabase();
+  const { data, error } = await sb.rpc('leave_room', {
+    p_room_id: roomId,
+    p_user_id: getTelegramUser().id,
+  });
+  if (error) throw roomError(error);
+  return mapRoom(data as Record<string, unknown>);
 }
 
 export async function startRoom(roomId: string): Promise<Room> {
@@ -191,7 +217,7 @@ export async function tickRoomState(roomId: string): Promise<Room> {
   return (await fetchRoom(roomId))!;
 }
 
-export async function enqueueQuickGame(desired = 6): Promise<Room | null> {
+export async function enqueueQuickGame(desired = 6, entryFee = 10): Promise<Room | null> {
   if (useMock) {
     await new Promise(r => setTimeout(r, 1500));
     let room = cacheRoom(createMockRoom(desired));
@@ -204,7 +230,7 @@ export async function enqueueQuickGame(desired = 6): Promise<Room | null> {
   const sb = requireSupabase();
   const u = getTelegramUser();
   const { data, error } = await sb.functions.invoke('match-queue', {
-    body: { user_id: u.id, desired },
+    body: { user_id: u.id, desired, entry_fee: entryFee },
   });
   if (error) throw roomError(error);
   const raw = data as Record<string, unknown>;

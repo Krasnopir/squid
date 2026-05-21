@@ -1,10 +1,11 @@
 import { Button } from '@telegram-apps/telegram-ui';
+import { useNavigate } from '@tanstack/react-router';
 import { AlertCircle, Check, Copy, Users } from 'lucide-react';
 import { useState } from 'react';
 
+import { leaveRoom, setRoomReady, startRoom } from '@/api/roomApi';
 import { PlayerGrid } from '@/components/ui/PlayerGrid';
 import { Timer } from '@/components/ui/Timer';
-import { setRoomReady, startRoom } from '@/api/roomApi';
 import { getTelegramUser } from '@/lib/telegram';
 import { hapticNotification } from '@/lib/telegram';
 import type { Room } from '@/types';
@@ -17,6 +18,7 @@ export function RoomLobby({
   onUpdate: (r: Room) => void;
 }) {
   const me = getTelegramUser();
+  const navigate = useNavigate();
   const myPlayer = room.players.find(p => p.userId === me.id);
   const isHost = room.hostId === me.id;
   const readyCount = room.players.filter(p => p.isReady).length;
@@ -65,6 +67,20 @@ export function RoomLobby({
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const handleLeave = async () => {
+    setError('');
+    setBusy(true);
+    try {
+      await leaveRoom(room.id);
+      onUpdate({ ...room, status: 'cancelled', players: [] });
+      navigate({ to: '/' });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Не удалось выйти из комнаты');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <div className="page-scroll page-pad flex flex-col gap-4">
       <div className="text-center">
@@ -81,6 +97,11 @@ export function RoomLobby({
           {room.players.length} / {room.maxPlayers}
         </span>
         <span className="text-sm text-[var(--app-hint)]">· {readyCount} готовы</span>
+      </div>
+
+      <div className="card-surface p-3 text-center text-sm text-[var(--app-hint)]">
+        Ставка: <span className="font-semibold text-[var(--trust-gold)]">{room.entryFee}</span> монет.
+        Списание произойдет только при старте.
       </div>
 
       {room.players.length >= 2 && room.phaseEndsAt && (
@@ -121,6 +142,9 @@ export function RoomLobby({
         )}
         <Button mode="plain" stretched onClick={invite}>
           Пригласить друзей
+        </Button>
+        <Button mode="plain" stretched onClick={handleLeave} disabled={busy}>
+          Выйти из комнаты
         </Button>
       </div>
     </div>

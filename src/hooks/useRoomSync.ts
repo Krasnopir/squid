@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 
-import { fetchRoom, tickRoomState } from '@/api/roomApi';
+import { fetchRoom, heartbeatRoom, tickRoomState } from '@/api/roomApi';
 import { queryKeys } from '@/api/queryKeys';
 import { useMock } from '@/lib/config';
 import { getSupabase } from '@/lib/supabase';
@@ -32,6 +32,23 @@ export function useRoomSync(roomId: string | undefined) {
         setRoom(r);
       }
     }, 500);
+    return () => clearInterval(id);
+  }, [roomId, queryClient, setRoom]);
+
+  useEffect(() => {
+    if (!roomId || useMock) return;
+    const beat = () => {
+      void heartbeatRoom(roomId)
+        .then(r => {
+          if (r) {
+            queryClient.setQueryData(queryKeys.room(roomId), r);
+            setRoom(r);
+          }
+        })
+        .catch(() => {});
+    };
+    beat();
+    const id = setInterval(beat, 10000);
     return () => clearInterval(id);
   }, [roomId, queryClient, setRoom]);
 

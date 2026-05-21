@@ -11,6 +11,7 @@ export function HomePage() {
   const setRoom = useRoomStore(s => s.setRoom);
   const [creating, setCreating] = useState(false);
   const [maxPlayers, setMaxPlayers] = useState(6);
+  const [entryFee, setEntryFee] = useState(10);
   const [error, setError] = useState('');
 
   const quick = () => navigate({ to: '/queue' });
@@ -19,7 +20,7 @@ export function HomePage() {
     setError('');
     setCreating(true);
     try {
-      const room = await createRoom(max, false);
+      const room = await createRoom(max, false, entryFee);
       setRoom(room);
       navigate({ to: '/room/$roomId', params: { roomId: room.id } });
     } catch (e) {
@@ -84,6 +85,27 @@ export function HomePage() {
           </button>
         ))}
       </div>
+
+      <div className="flex gap-2" aria-label="Ставка комнаты">
+        {[5, 10, 15, 20].map(fee => (
+          <button
+            key={fee}
+            type="button"
+            onClick={() => setEntryFee(fee)}
+            className={`h-10 flex-1 rounded-xl text-sm font-semibold ${
+              entryFee === fee
+                ? 'bg-[var(--trust-red)]/20 text-[var(--trust-red)]'
+                : 'bg-white/5 text-[var(--app-hint)]'
+            }`}
+          >
+            {fee}
+          </button>
+        ))}
+      </div>
+
+      <p className="text-center text-xs text-[var(--app-hint)]">
+        Монеты списываются только при старте игры. Если комната не собралась, баланс не трогаем.
+      </p>
 
       {error && <p className="text-sm text-red-400">{error}</p>}
 

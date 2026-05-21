@@ -5,10 +5,13 @@ import { useEffect, useState } from 'react';
 import { createRoom, enqueueQuickGame } from '@/api/roomApi';
 import { useRoomStore } from '@/store/roomStore';
 
+const ENTRY_FEES = [5, 10, 15, 20] as const;
+
 export function QueuePage() {
   const navigate = useNavigate();
   const { queueStatus, setQueueStatus, setRoom } = useRoomStore();
   const [error, setError] = useState('');
+  const [entryFee, setEntryFee] = useState(10);
   const searching = queueStatus === 'searching';
 
   useEffect(() => {
@@ -20,7 +23,7 @@ export function QueuePage() {
       if (cancelled) return;
       setError('');
       try {
-        const room = await enqueueQuickGame(6);
+        const room = await enqueueQuickGame(6, entryFee);
         if (cancelled) return;
         if (room) {
           setRoom(room);
@@ -43,11 +46,11 @@ export function QueuePage() {
       cancelled = true;
       if (timer) clearTimeout(timer);
     };
-  }, [navigate, setQueueStatus, setRoom]);
+  }, [entryFee, navigate, setQueueStatus, setRoom]);
 
   const createFallbackRoom = async () => {
     setError('');
-    const room = await createRoom(6, false);
+    const room = await createRoom(6, false, entryFee);
     setRoom(room);
     navigate({ to: '/room/$roomId', params: { roomId: room.id } });
   };
@@ -62,9 +65,25 @@ export function QueuePage() {
       <h2 className="text-xl font-bold">{searching ? 'Ищем игроков…' : 'Очередь недоступна'}</h2>
       <p className="text-sm text-[var(--app-hint)] text-center max-w-xs">
         {searching
-          ? 'Подбираем комнату. Если мало людей — добавим ботов для старта.'
+          ? `Подбираем комнату со ставкой ${entryFee}. Если мало людей — добавим ботов для старта.`
           : 'Можно создать комнату и отправить код друзьям.'}
       </p>
+      <div className="flex w-full max-w-xs gap-2" aria-label="Ставка быстрой игры">
+        {ENTRY_FEES.map(fee => (
+          <button
+            key={fee}
+            type="button"
+            onClick={() => setEntryFee(fee)}
+            className={`h-10 flex-1 rounded-xl text-sm font-semibold ${
+              entryFee === fee
+                ? 'bg-[var(--trust-gold)]/20 text-[var(--trust-gold)]'
+                : 'bg-white/5 text-[var(--app-hint)]'
+            }`}
+          >
+            {fee}
+          </button>
+        ))}
+      </div>
       {error && <p className="text-sm text-red-400 text-center max-w-xs">{error}</p>}
       {!searching && (
         <button type="button" className="btn-primary px-5 py-3" onClick={createFallbackRoom}>
