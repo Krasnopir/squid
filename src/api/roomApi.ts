@@ -44,6 +44,9 @@ function roomError(error: unknown): Error {
     not_host: 'Начать игру может только создатель комнаты',
     not_enough_players: 'Нужно минимум 2 игрока',
   };
+  if (message.includes('Failed to send a request to the Edge Function')) {
+    return new Error('Edge Function match-queue недоступна. Проверь deploy функции и SUPABASE_SERVICE_ROLE_KEY.');
+  }
   return new Error(known[message] ?? message);
 }
 

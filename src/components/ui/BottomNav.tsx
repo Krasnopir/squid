@@ -1,5 +1,5 @@
 import { Link, useRouterState } from '@tanstack/react-router';
-import { Gamepad2, Gift, ShoppingBag, User, Wallet } from 'lucide-react';
+import { Gamepad2, Gift, User, Wallet } from 'lucide-react';
 
 import { cn } from '@/lib/cn';
 
@@ -7,8 +7,7 @@ const TABS = [
   { to: '/', Icon: Gamepad2, label: 'Игра' },
   { to: '/profile', Icon: User, label: 'Профиль' },
   { to: '/wallet', Icon: Wallet, label: 'TON' },
-  { to: '/prizes', Icon: Gift, label: 'Призы' },
-  { to: '/shop', Icon: ShoppingBag, label: 'Магазин' },
+  { to: '/prizes', Icon: Gift, label: 'Рейтинг' },
 ] as const;
 
 export function BottomNav() {

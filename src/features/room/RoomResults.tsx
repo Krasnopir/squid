@@ -3,6 +3,8 @@ import { Link } from '@tanstack/react-router';
 import { Share2, Trophy } from 'lucide-react';
 import { useState } from 'react';
 
+import { claimRoomReward } from '@/api/profileApi';
+import { useMock } from '@/lib/config';
 import { getTelegramUser, hapticNotification, shareResult } from '@/lib/telegram';
 import { useSessionStore } from '@/store/sessionStore';
 import type { Room } from '@/types';
@@ -19,17 +21,35 @@ export function RoomResults({ room }: { room: Room }) {
       ? room.pot
       : 0;
   const [claimed, setClaimed] = useState(false);
+  const [claiming, setClaiming] = useState(false);
+  const [error, setError] = useState('');
 
-  const claim = () => {
-    if (reward > 0 && !claimed) {
-      addCoins(reward);
-      setProfile({
-        wins: profile.wins + (won ? 1 : 0),
-        gamesPlayed: profile.gamesPlayed + 1,
-        xp: profile.xp + (won ? 50 : 15),
-      });
+  const claim = async () => {
+    if (claimed || claiming) return;
+    setError('');
+    setClaiming(true);
+    try {
+      if (!useMock) {
+        const result = await claimRoomReward(room.id);
+        if (result.profile) setProfile(result.profile);
+        setClaimed(true);
+        hapticNotification(result.reward > 0 ? 'success' : 'warning');
+        return;
+      }
+      if (reward > 0) {
+        addCoins(reward);
+        setProfile({
+          wins: profile.wins + (won ? 1 : 0),
+          gamesPlayed: profile.gamesPlayed + 1,
+          xp: profile.xp + (won ? 50 : 15),
+        });
+        hapticNotification('success');
+      }
       setClaimed(true);
-      hapticNotification('success');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Не удалось начислить результат');
+    } finally {
+      setClaiming(false);
     }
   };
 
@@ -52,11 +72,10 @@ export function RoomResults({ room }: { room: Room }) {
         {me.first_name.slice(0, 2).toUpperCase()}
       </div>
       <div className="flex flex-col gap-2 w-full max-w-xs">
-        {reward > 0 && (
-          <button type="button" className="btn-primary py-4 w-full" onClick={claim} disabled={claimed}>
-            {claimed ? 'Награда начислена' : 'Забрать игровые монеты'}
-          </button>
-        )}
+        <button type="button" className="btn-primary py-4 w-full" onClick={claim} disabled={claimed || claiming}>
+          {claimed ? 'Результат сохранен' : reward > 0 ? 'Сохранить результат и награду' : 'Сохранить результат'}
+        </button>
+        {error && <p className="text-sm text-red-400">{error}</p>}
         <button
           type="button"
           className="card-surface py-3 w-full flex items-center justify-center gap-2"

@@ -1,7 +1,8 @@
 import { useNavigate } from '@tanstack/react-router';
-import { Loader2 } from 'lucide-react';
+import { AlertCircle, Loader2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
+import { createRoom } from '@/api/roomApi';
 import { enqueueQuickGame } from '@/api/roomApi';
 import { useRoomStore } from '@/store/roomStore';
 
@@ -9,6 +10,7 @@ export function QueuePage() {
   const navigate = useNavigate();
   const { queueStatus, setQueueStatus, setRoom } = useRoomStore();
   const [error, setError] = useState('');
+  const searching = queueStatus === 'searching';
 
   useEffect(() => {
     setQueueStatus('searching');
@@ -33,16 +35,32 @@ export function QueuePage() {
     };
   }, [navigate, setQueueStatus, setRoom]);
 
+  const createFallbackRoom = async () => {
+    setError('');
+    const room = await createRoom(6, false);
+    setRoom(room);
+    navigate({ to: '/room/$roomId', params: { roomId: room.id } });
+  };
+
   return (
     <div className="page-scroll page-pad flex flex-col items-center justify-center gap-4 min-h-[60vh]">
-      <Loader2 size={48} className="animate-spin text-[var(--trust-red)]" />
-      <h2 className="text-xl font-bold">Ищем игроков…</h2>
+      {searching ? (
+        <Loader2 size={48} className="animate-spin text-[var(--trust-red)]" />
+      ) : (
+        <AlertCircle size={48} className="text-red-400" />
+      )}
+      <h2 className="text-xl font-bold">{searching ? 'Ищем игроков…' : 'Очередь недоступна'}</h2>
       <p className="text-sm text-[var(--app-hint)] text-center max-w-xs">
-        {queueStatus === 'searching'
+        {searching
           ? 'Подбираем комнату. Если мало людей — добавим ботов для старта.'
-          : 'Комната найдена!'}
+          : 'Можно создать комнату и отправить код друзьям.'}
       </p>
       {error && <p className="text-sm text-red-400 text-center max-w-xs">{error}</p>}
+      {!searching && (
+        <button type="button" className="btn-primary px-5 py-3" onClick={createFallbackRoom}>
+          Создать комнату
+        </button>
+      )}
     </div>
   );
 }

@@ -34,8 +34,8 @@ export function WalletPage() {
           +500 монет (демо)
         </Button>
       ) : (
-        <Button stretched size="l" onClick={() => {}}>
-          Купить монеты за Stars
+        <Button stretched size="l" disabled>
+          Покупка Stars отключена
         </Button>
       )}
       <Button

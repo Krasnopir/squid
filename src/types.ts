@@ -95,5 +95,6 @@ export interface LeaderboardEntry {
   displayName: string;
   username?: string;
   wins: number;
+  gamesPlayed?: number;
   score: number;
 }

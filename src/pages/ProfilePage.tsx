@@ -5,6 +5,7 @@ import { useSessionStore } from '@/store/sessionStore';
 export function ProfilePage() {
   const { profile } = useSessionStore();
   const xpPct = Math.round((profile.xp / profile.xpToNext) * 100);
+  const rank = profile.globalRank > 0 ? `#${profile.globalRank}` : '—';
 
   return (
     <div className="page-scroll page-pad flex flex-col gap-4">
@@ -39,7 +40,7 @@ export function ProfilePage() {
         {[
           { Icon: Trophy, label: 'Побед', value: profile.wins },
           { Icon: Target, label: 'Игр', value: profile.gamesPlayed },
-          { Icon: TrendingUp, label: 'Ранг', value: `#${profile.globalRank}` },
+          { Icon: TrendingUp, label: 'Ранг', value: rank },
         ].map(({ Icon, label, value }) => (
           <div key={label} className="card-surface p-3 text-center">
             <Icon size={20} className="mx-auto text-[var(--trust-gold)] mb-1" />
