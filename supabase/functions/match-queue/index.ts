@@ -4,22 +4,52 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-const BOT_NAMES = ['CryptoNinja', 'DarkLord', 'Shadow', 'NeonFox', 'Viper'];
+const BOT_NAMES = ['Bot 1', 'Bot 2', 'Bot 3', 'Bot 4', 'Bot 5'];
+const cors = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Content-Type': 'application/json',
+};
+
+function json(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), { status, headers: cors });
+}
 
 serve(async req => {
   const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
-  const cors = { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' };
 
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
 
   const { user_id, desired = 6 } = await req.json().catch(() => ({}));
   if (!user_id) {
-    return new Response(JSON.stringify({ error: 'user_id required' }), { status: 400, headers: cors });
+    return json({ error: 'user_id required' }, 400);
   }
 
-  await supabase.rpc('enqueue_matchmaking', { p_user_id: user_id, p_desired: desired });
+  const { data: existingPlayer, error: existingError } = await supabase
+    .from('room_players')
+    .select('room_id, rooms!inner(id,status,created_at)')
+    .eq('user_id', user_id)
+    .in('rooms.status', ['waiting', 'playing'])
+    .gte('rooms.created_at', new Date(Date.now() - 10 * 60 * 1000).toISOString())
+    .order('joined_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (existingError) return json({ error: existingError.message }, 500);
+  if (existingPlayer?.room_id) {
+    const { data: state, error } = await supabase.rpc('get_room_state', { p_room_id: existingPlayer.room_id });
+    if (error) return json({ error: error.message }, 500);
+    return json(state);
+  }
 
-  const { data: queue } = await supabase.from('match_queue').select('*').order('enqueued_at');
+  const { error: enqueueError } = await supabase.rpc('enqueue_matchmaking', {
+    p_user_id: user_id,
+    p_desired: desired,
+  });
+  if (enqueueError) return json({ error: enqueueError.message }, 500);
+
+  const { data: queue, error: queueError } = await supabase.from('match_queue').select('*').order('enqueued_at');
+  if (queueError) return json({ error: queueError.message }, 500);
   const waitMs = Date.now() - new Date(queue?.[0]?.enqueued_at ?? Date.now()).getTime();
   const minPlayers = waitMs > 20000 ? 2 : 3;
 
@@ -31,9 +61,11 @@ serve(async req => {
       p_max_players: desired,
       p_is_private: false,
     });
+    if (!roomRaw?.id) return json({ error: 'room_create_failed' }, 500);
     const room = roomRaw as { id: string };
     for (let i = 1; i < players.length; i++) {
-      await supabase.rpc('join_room', { p_user_id: players[i]!.user_id, p_room_id: room.id });
+      const { error } = await supabase.rpc('join_room', { p_user_id: players[i]!.user_id, p_room_id: room.id });
+      if (error) return json({ error: error.message }, 500);
     }
     const botsNeeded = Math.max(0, minPlayers - players.length);
     for (let b = 0; b < botsNeeded; b++) {
@@ -48,9 +80,10 @@ serve(async req => {
       });
     }
     await supabase.from('match_queue').delete().in('user_id', players.map(p => p.user_id));
-    const { data: state } = await supabase.rpc('start_room', { p_room_id: room.id, p_user_id: hostId });
-    return new Response(JSON.stringify(state), { headers: cors });
+    const { data: state, error } = await supabase.rpc('start_room', { p_room_id: room.id, p_user_id: hostId });
+    if (error) return json({ error: error.message }, 500);
+    return json(state);
   }
 
-  return new Response(JSON.stringify({ queued: true, count: queue?.length ?? 0 }), { headers: cors });
+  return json({ queued: true, count: queue?.length ?? 0 });
 });

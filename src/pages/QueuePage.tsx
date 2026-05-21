@@ -2,8 +2,7 @@ import { useNavigate } from '@tanstack/react-router';
 import { AlertCircle, Loader2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
-import { createRoom } from '@/api/roomApi';
-import { enqueueQuickGame } from '@/api/roomApi';
+import { createRoom, enqueueQuickGame } from '@/api/roomApi';
 import { useRoomStore } from '@/store/roomStore';
 
 export function QueuePage() {
@@ -15,23 +14,34 @@ export function QueuePage() {
   useEffect(() => {
     setQueueStatus('searching');
     let cancelled = false;
-    (async () => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    const search = async () => {
+      if (cancelled) return;
+      setError('');
       try {
-        setError('');
         const room = await enqueueQuickGame(6);
         if (cancelled) return;
-        setRoom(room);
-        setQueueStatus('matched');
-        navigate({ to: '/room/$roomId', params: { roomId: room.id } });
+        if (room) {
+          setRoom(room);
+          setQueueStatus('matched');
+          navigate({ to: '/room/$roomId', params: { roomId: room.id } });
+          return;
+        }
+        timer = setTimeout(search, 2000);
       } catch (e) {
         if (!cancelled) {
           setError(e instanceof Error ? e.message : 'Не удалось найти матч');
           setQueueStatus('idle');
         }
       }
-    })();
+    };
+
+    void search();
+
     return () => {
       cancelled = true;
+      if (timer) clearTimeout(timer);
     };
   }, [navigate, setQueueStatus, setRoom]);
 

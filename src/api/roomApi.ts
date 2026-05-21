@@ -191,7 +191,7 @@ export async function tickRoomState(roomId: string): Promise<Room> {
   return (await fetchRoom(roomId))!;
 }
 
-export async function enqueueQuickGame(desired = 6): Promise<Room> {
+export async function enqueueQuickGame(desired = 6): Promise<Room | null> {
   if (useMock) {
     await new Promise(r => setTimeout(r, 1500));
     let room = cacheRoom(createMockRoom(desired));
@@ -209,8 +209,7 @@ export async function enqueueQuickGame(desired = 6): Promise<Room> {
   if (error) throw roomError(error);
   const room = mapRoom(data as Record<string, unknown>);
   if (room?.id) return room;
-  await new Promise(r => setTimeout(r, 3000));
-  throw new Error('Очередь: недостаточно игроков, попробуйте снова');
+  return null;
 }
 
 export { advancePhase };
