@@ -43,21 +43,17 @@ serve(async req => {
   const desiredPlayers = clampPlayers(desired);
   const entryFee = parseEntryFee(entry_fee);
 
-  const { data: existingPlayer, error: existingError } = await supabase
+  const { data: existingPlayers, error: existingError } = await supabase
     .from('room_players')
     .select('room_id, rooms!inner(id,status,created_at)')
     .eq('user_id', user_id)
     .is('left_at', null)
     .in('rooms.status', ['waiting', 'playing'])
-    .gte('rooms.created_at', new Date(Date.now() - 10 * 60 * 1000).toISOString())
-    .order('joined_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .order('joined_at', { ascending: false });
   if (existingError) return json({ error: existingError.message }, 500);
-  if (existingPlayer?.room_id) {
-    const { data: state, error } = await supabase.rpc('get_room_state', { p_room_id: existingPlayer.room_id });
-    if (error) return json({ error: error.message }, 500);
-    return json(state);
+
+  for (const player of existingPlayers ?? []) {
+    await supabase.rpc('leave_room', { p_room_id: player.room_id, p_user_id: user_id });
   }
 
   const { error: enqueueError } = await supabase.rpc('enqueue_matchmaking', {

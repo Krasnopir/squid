@@ -1,7 +1,10 @@
 import { Hand, Scissors, Scroll } from 'lucide-react';
+import { useState } from 'react';
 
+import { tickRoomState } from '@/api/roomApi';
 import { Timer } from '@/components/ui/Timer';
 import { getTelegramUser } from '@/lib/telegram';
+import { useRoomStore } from '@/store/roomStore';
 import type { Room, RpsChoice } from '@/types';
 
 const LABELS: Record<RpsChoice, string> = {
@@ -18,10 +21,20 @@ const ICONS = {
 
 export function RoomFinalReveal({ room }: { room: Room }) {
   const me = getTelegramUser();
+  const setRoom = useRoomStore(s => s.setRoom);
+  const [busy, setBusy] = useState(false);
   const alive = room.players.filter(p => p.isAlive);
   const result = room.lastFinalResult;
   const choices = new Map(result?.choices.map(c => [c.userId, c.choice]));
   const won = result?.winnerId === me.id;
+  const advance = async () => {
+    setBusy(true);
+    try {
+      setRoom(await tickRoomState(room.id));
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
     <div className="page-scroll page-pad flex min-h-full flex-col items-center justify-center gap-5 text-center">
@@ -45,6 +58,9 @@ export function RoomFinalReveal({ room }: { room: Room }) {
       <h1 className="text-2xl font-bold">
         {result?.draw ? 'Ничья. Еще один заход.' : won ? 'Вы забрали финал' : 'Финал забрал соперник'}
       </h1>
+      <button type="button" className="btn-primary w-full max-w-sm py-4" onClick={advance} disabled={busy}>
+        {busy ? 'Продвигаем…' : 'Продолжить'}
+      </button>
     </div>
   );
 }
